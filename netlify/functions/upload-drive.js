@@ -7,8 +7,8 @@ const { Readable } = require("stream");
 ===================================================== */
 const ROOTS = {
   MIS_OSIMO: "1bsPNJ2BFJIP9Q3WwDSVNy32u-Qu2qMjr",
-  MIS_MONTEGIORGIO: "1PCvF76LJwD6T_OaPtkWg6dh1Tg-DG6or",
-  MIS_GROTTAMMARE: "12Nj8o942uedxByJOtcSKXvkTBH6ShNNA"
+  MIS_MONTEGIORGIO: "1CHZbSwLkrJ6EWpyb21c4DadreCb75REt",
+  MIS_GROTTAMMARE: "1_ezSWMoQOpgiuiOFc5NOtlMrjMJEUHhv"
 };
 
 /* =====================================================
@@ -49,11 +49,7 @@ async function getOrCreateFolder(drive, name, parentId) {
   if (res.data.files?.length) return res.data.files[0].id;
 
   const folder = await drive.files.create({
-    requestBody: {
-      name,
-      mimeType: "application/vnd.google-apps.folder",
-      parents: [parentId]
-    },
+    requestBody: { name, mimeType: "application/vnd.google-apps.folder", parents: [parentId] },
     fields: "id"
   });
 
@@ -62,8 +58,8 @@ async function getOrCreateFolder(drive, name, parentId) {
 
 function meseFolder(data) {
   const mesi = [
-    "01_GENNAIO", "02_FEBBRAIO", "03_MARZO", "04_APRILE", "05_MAGGIO", "06_GIUGNO",
-    "07_LUGLIO", "08_AGOSTO", "09_SETTEMBRE", "10_OTTOBRE", "11_NOVEMBRE", "12_DICEMBRE"
+    "01_GENNAIO","02_FEBBRAIO","03_MARZO","04_APRILE","05_MAGGIO","06_GIUGNO",
+    "07_LUGLIO","08_AGOSTO","09_SETTEMBRE","10_OTTOBRE","11_NOVEMBRE","12_DICEMBRE"
   ];
   return mesi[new Date(data).getMonth()];
 }
@@ -81,7 +77,7 @@ async function buildTree(drive, societa, modulo, tipo, data) {
   const meseId = await getOrCreateFolder(drive, mese, modId);
 
   if (tipo === "TS") {
-    const pdfId = await getOrCreateFolder(drive, "PDF", meseId);
+    const pdfId   = await getOrCreateFolder(drive, "PDF", meseId);
     const excelId = await getOrCreateFolder(drive, "EXCEL", meseId);
     return { pdfId, excelId };
   }
@@ -99,27 +95,6 @@ function bufferFromBase64(b64, label = "file") {
   return Buffer.from(b64, "base64");
 }
 
-function getMailConfig() {
-  const host = process.env.MAIL_HOST || process.env.SMTP_HOST || "smtp.gmail.com";
-  const port = Number(process.env.MAIL_PORT || process.env.SMTP_PORT || 587);
-  const secureRaw = process.env.MAIL_SECURE ?? process.env.SMTP_SECURE ?? "false";
-  const secure = String(secureRaw).toLowerCase() === "true";
-
-  const user = process.env.MAIL_USER || process.env.SMTP_USER;
-  const pass =
-    process.env.MAIL_PASSWORD ||
-    process.env.MAIL_PWD ||
-    process.env.SMTP_PASS;
-
-  const from = process.env.MAIL_FROM || process.env.SMTP_FROM || user;
-
-  if (!user || !pass) {
-    throw new Error("Credenziali mail mancanti: verifica MAIL_USER e MAIL_PASSWORD");
-  }
-
-  return { host, port, secure, user, pass, from };
-}
-
 /* =====================================================
    HANDLER
 ===================================================== */
@@ -128,14 +103,8 @@ exports.handler = async (event) => {
     if (!event.body) throw new Error("Body mancante");
 
     const {
-      societa,
-      modulo,
-      tipo,
-      data_servizio,
-      deposito_drive,
-      email,
-      pdf,
-      excel
+      societa, modulo, tipo, data_servizio,
+      deposito_drive, email, pdf, excel
     } = JSON.parse(event.body);
 
     if (!societa || !modulo || !tipo || !data_servizio) {
@@ -154,6 +123,7 @@ exports.handler = async (event) => {
     let excelLink = null;
 
     if (deposito_drive === true && drive) {
+
       const folders = await buildTree(
         drive,
         societa,
@@ -164,14 +134,8 @@ exports.handler = async (event) => {
 
       if (pdf) {
         const resPdf = await drive.files.create({
-          requestBody: {
-            name: pdf.name,
-            parents: [folders.pdfId]
-          },
-          media: {
-            mimeType: "application/pdf",
-            body: Readable.from(bufferFromBase64(pdf.data, "pdf"))
-          },
+          requestBody: { name: pdf.name, parents: [folders.pdfId] },
+          media: { mimeType: "application/pdf", body: Readable.from(bufferFromBase64(pdf.data)) },
           fields: "id"
         });
         pdfLink = toDriveViewLink(resPdf.data.id);
@@ -179,13 +143,10 @@ exports.handler = async (event) => {
 
       if (tipo === "TS" && excel) {
         const resXls = await drive.files.create({
-          requestBody: {
-            name: excel.name,
-            parents: [folders.excelId]
-          },
+          requestBody: { name: excel.name, parents: [folders.excelId] },
           media: {
             mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            body: Readable.from(bufferFromBase64(excel.data, "excel"))
+            body: Readable.from(bufferFromBase64(excel.data))
           },
           fields: "id"
         });
@@ -197,15 +158,13 @@ exports.handler = async (event) => {
        EMAIL SOLO PER CHECKLIST
     ===================================================== */
     if (tipo === "CHECKLIST") {
-      const mailCfg = getMailConfig();
-
       const transporter = nodemailer.createTransport({
-        host: mailCfg.host,
-        port: mailCfg.port,
-        secure: mailCfg.secure,
+        host: "smtp.gmail.com",
+        port: 587,
+        secure: false,
         auth: {
-          user: mailCfg.user,
-          pass: mailCfg.pass
+          user: process.env.MAIL_USER,
+          pass: process.env.MAIL_PASSWORD
         }
       });
 
@@ -213,7 +172,7 @@ exports.handler = async (event) => {
       if (pdf) {
         attachments.push({
           filename: pdf.name,
-          content: bufferFromBase64(pdf.data, "pdf")
+          content: bufferFromBase64(pdf.data)
         });
       }
 
@@ -230,7 +189,7 @@ exports.handler = async (event) => {
       }
 
       await transporter.sendMail({
-        from: mailCfg.from,
+        from: process.env.MAIL_USER,
         to: email?.to || [],
         cc: email?.cc || [],
         subject: `${modulo} – ${societa}`,
@@ -248,6 +207,7 @@ exports.handler = async (event) => {
         excelLink
       })
     };
+
   } catch (err) {
     console.error("UPLOAD ERROR:", err);
     return {
