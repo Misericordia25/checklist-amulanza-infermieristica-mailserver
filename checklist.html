@@ -2663,7 +2663,7 @@ function resetChecklist(){
   FILENAME PDF
 ============================ */
 function filenameWithTarga(){
- const titolo = 'Checklist_Ambulanza di soccorso avanzato A-ALS/Ambulanza infermieristica/Ambulanza Medicalizzata';
+ const titolo = 'Checklist Ambulanza di soccorso avanzato A-ALS/Ambulanza infermieristica/Ambulanza Medicalizzata';
  const targaRaw = (document.getElementById('targa')?.value || 'NON_TARGA');
  const targa = String(targaRaw).trim().replace(/\s+/g,'_').replace(/[^A-Za-z0-9_\-]/g,'');
  const now = new Date();
@@ -2756,7 +2756,7 @@ async function anteprimaCondivisionePDF(){
  const dataStr = now.toLocaleDateString('it-IT')+' '+now.toTimeString().slice(0,5);
  const info = document.createElement('div');
  info.style = 'font-weight:bold;margin-bottom:12px;';
- info.textContent = `Checklist: Ambulanza Infermieristica — Veicolo: ${veicolo} — Data compilazione: ${dataStr}`;
+ info.textContent = `Checklist: Checklist Ambulanza di soccorso avanzato A-ALS/Ambulanza infermieristica/Ambulanza Medicalizzata — Veicolo: ${veicolo} — Data compilazione: ${dataStr}`;
  const firstH2 = bodyCopy.querySelector('h2');
  if(firstH2 && firstH2.parentNode) firstH2.parentNode.insertBefore(info,firstH2);
  
